@@ -1,0 +1,467 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import cross_val_score , RepeatedStratifiedKFold, StratifiedKFold,KFold
+from sklearn.preprocessing import LabelEncoder,OrdinalEncoder,OneHotEncoder,StandardScaler,MinMaxScaler
+from sklearn.pipeline import Pipeline 
+from sklearn.metrics import accuracy_score ,r2_score ,recall_score,roc_auc_score , precision_score,mean_absolute_error
+import matplotlib.pyplot as plt
+
+
+# In[2]:
+
+
+# importing the dataset 
+dataset=pd.read_csv('data_estimation_total_compansation.csv')
+
+
+# In[3]:
+
+
+data=pd.DataFrame(dataset)
+
+
+# In[4]:
+
+
+print(data.shape)
+
+
+# In[5]:
+
+
+data.isnull().sum()
+
+# here we can see that we have two columns where null values are present 
+# it is very less than comparision to our data so we are just dropping null values
+
+
+# In[6]:
+
+
+# dropping the null values
+
+data_new =data.dropna()
+
+
+# In[7]:
+
+
+data_new=data_new.reset_index()
+
+
+print(data_new)
+
+
+# In[8]:
+
+
+# finding the number of unique values present in our dataset
+
+data_new.nunique()
+
+
+# In[9]:
+
+
+data_new.isnull().sum()
+
+
+# In[10]:
+
+
+# trying to find the relationship of target and features 
+
+
+# In[11]:
+
+
+data_new.corr()
+
+
+# In[12]:
+
+
+import seaborn as sns
+
+sns.set(rc = {'figure.figsize':(16,8)})
+sns.heatmap(data_new.corr(), annot = True, fmt='.2g',cmap= 'coolwarm')
+
+
+
+# here we can see that salaries H/D and overtime columns are highly corelated with the total_compensation  so this three columns 
+# are really important for out target feature
+
+
+# In[13]:
+
+
+# scatter plot for total_compensation and salaries
+axis_font = {'fontname':'Arial', 'size':'20'}
+
+plt.plot(data_new['Salaries'], data_new['Total_Compensation'], 'o', color='green');
+plt.xlabel('Salaries',**axis_font)
+plt.ylabel('Total_Compensation',**axis_font)
+
+plt.show()
+
+
+# In[14]:
+
+
+plt.plot(data_new['H/D'], data_new['Total_Compensation'], 'o', color='red');
+plt.xlabel('H/D',**axis_font)
+plt.ylabel('Total_Compensation',**axis_font)
+
+plt.show()
+
+
+# In[15]:
+
+
+plt.plot(data_new['Overtime'], data_new['Total_Compensation'], 'o', color='black');
+plt.xlabel('Overtime',**axis_font)
+plt.ylabel('Total_Compensation',**axis_font)
+
+plt.show()
+
+
+# In[16]:
+
+
+from sklearn.model_selection import train_test_split
+# splitting the data into features  and targets
+
+X=data_new.iloc[:,:-1]
+y=data_new.iloc[:,-1]
+
+
+# In[17]:
+
+
+print(X.shape)
+print(X)
+
+
+# In[18]:
+
+
+print(y.shape)
+print(y)
+
+
+# In[19]:
+
+
+# splitting the features and target into train and test split
+X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=.33,random_state=526)
+
+
+# In[20]:
+
+
+print(X_train.shape)
+print(X_test.shape)
+print(y_train.shape)
+print(y_test.shape)
+
+
+# In[21]:
+
+
+print(X_train.dtypes)
+
+
+# In[22]:
+
+
+X_train_cat=X_train.select_dtypes(include='object')
+X_train_cat=pd.concat([X_train_cat,X_train[['OGC','UC']]],axis=1)
+
+
+# In[23]:
+
+
+print(X_train_cat.shape)
+print(X_train_cat)
+
+
+# In[24]:
+
+
+X_train_num=X_train.select_dtypes(include=['int32','int64','float32','float64'])
+
+
+# In[25]:
+
+
+
+X_train_num=X_train_num.drop(['index'],axis=1)
+
+
+# In[26]:
+
+
+X_train_num
+
+
+# In[27]:
+
+
+X_test_cat=X_test.select_dtypes(include='object')
+X_test_cat=pd.concat([X_test_cat,X_test[['OGC','UC']]],axis=1)
+
+
+# In[28]:
+
+
+print(X_test_cat)
+
+
+# In[29]:
+
+
+X_test_num=X_test.select_dtypes(include=['int32','int64','float32','float64'])
+print(X_test_num)
+X_test_num=X_test_num.drop(['OGC','UC'],axis=1)
+
+
+# In[30]:
+
+
+
+
+print(X_test_num)
+
+
+# In[51]:
+
+
+print(X_train_cat.shape)
+print(X_test_cat.shape)
+print(X_train_num.shape)
+print(X_test_num.shape)
+
+
+# In[52]:
+
+
+X_test_num
+
+
+# In[53]:
+
+
+X_test_num=X_test_num.drop(['index'],axis=1)
+
+
+# In[49]:
+
+
+# X_train_num=X_train_num.drop(['OGC','UC'],axis=1)
+
+
+# In[54]:
+
+
+X_test_num
+
+
+# In[58]:
+
+
+# PREPROCESSING FOR THE CATEGORICAL DATA FOR TRAIN AND TEST DATA ordinal encoder
+OE=OrdinalEncoder()
+OE.fit(X_train_cat)
+X_train_cat_enc=OE.transform(X_train_cat)
+
+
+# In[59]:
+
+
+OE.fit(X_test_cat)
+X_test_cat_enc=OE.transform(X_test_cat)
+
+
+# In[60]:
+
+
+# PREPROCESSING FOR THE numerical DATA FOR TRAIN AND TEST DATA standard scaler
+
+SC=StandardScaler()
+SC.fit(X_train_num)
+X_train_num_enc=SC.transform(X_train_num)
+
+
+# In[61]:
+
+
+SC.fit(X_test_num)
+X_test_num_enc=SC.transform(X_test_num)
+
+
+# In[62]:
+
+
+# PREPROCESSING FOR THE target DATA FOR TRAIN AND TEST DATA standard scaler
+y_test_df=pd.DataFrame(y_test)
+SC.fit(y_test_df)
+y_test_enc=SC.transform(y_test_df)
+
+
+# In[41]:
+
+
+y_train_df=pd.DataFrame(y_train)
+SC.fit(y_train_df)
+y_train_enc=SC.transform(y_train_df)
+
+
+# In[63]:
+
+
+# concat the categorical and numerical data of train and test data 
+X_train_cat_enc_df=pd.DataFrame(X_train_cat_enc)
+X_train_num_enc_df=pd.DataFrame(X_train_num_enc)
+
+X_train_final =pd.concat([X_train_cat_enc_df,X_train_num_enc_df],axis=1)
+
+
+# In[64]:
+
+
+X_train_cat_enc_df
+
+
+# In[65]:
+
+
+X_train_num_enc_df
+
+
+# In[66]:
+
+
+X_test_cat_enc_df=pd.DataFrame(X_test_cat_enc)
+X_test_num_enc_df=pd.DataFrame(X_test_num_enc)
+
+X_test_final =pd.concat([X_test_cat_enc_df,X_test_num_enc_df],axis=1)
+
+
+# In[67]:
+
+
+print(X_train_final)
+
+
+# In[68]:
+
+
+print(X_test_final)
+
+
+# In[82]:
+
+
+# model building 
+from sklearn.linear_model import LinearRegression
+
+
+lr= LinearRegression()
+lr.fit(X_train_final,y_train_enc)
+y_pred=lr.predict(X_test_final)
+MAE=mean_absolute_error(y_pred,y_test_enc)
+MSE1=mean_squared_error(y_pred,y_test_enc)
+print(MAE)
+print(MSE1)
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[84]:
+
+
+from sklearn.tree import DecisionTreeRegressor
+DTR=DecisionTreeRegressor()
+DTR.fit(X_train_final,y_train_enc)
+y_pred1=DTR.predict(X_test_final)
+MAE1=mean_absolute_error(y_pred1,y_test_enc)
+MSE2=mean_squared_error(y_pred1,y_test_enc)
+print(MAE1)
+print(MSE2)
+
+
+# In[73]:
+
+
+# hyperparameter tuning for decision tree 
+from sklearn.model_selection import GridSearchCV
+parameters={"splitter":["best","random"],
+            "max_depth" : [1,3,5,7,9,11,12],
+           "min_samples_leaf":[1,2,3,4,5,6,7,8,9,10],
+           "min_weight_fraction_leaf":[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9],
+           "max_features":["auto","log2","sqrt",None],
+           "max_leaf_nodes":[None,10,20,30,40,50,60,70,80,90] }
+tuning_model=GridSearchCV(estimator=DTR,param_grid=parameters,scoring='neg_mean_squared_error',cv=3,verbose=3)
+tuning_model.fit(X_train_final,y_train_enc)
+
+
+# In[74]:
+
+
+# best hyper parameter
+
+print('BEST PARAMETER ' , tuning_model.best_params_)
+print('BEST SCORE ' ,tuning_model.best_score_)
+
+
+# In[76]:
+
+
+final_model=DecisionTreeRegressor(max_depth=5, max_features= 'auto', max_leaf_nodes= None, min_samples_leaf= 6, min_weight_fraction_leaf= 0.1, splitter= 'best')
+
+
+# In[77]:
+
+
+final_model.fit(X_train_final,y_train_enc)
+
+
+# In[78]:
+
+
+y_pred_final=final_model.predict(X_test_final)
+
+
+# In[79]:
+
+
+from sklearn.metrics import mean_squared_error
+MSE=mean_squared_error(y_pred_final,y_test_enc)
+
+
+# In[80]:
+
+
+print(MSE)
+
+
+# In[ ]:
+
+
+
